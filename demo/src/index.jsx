@@ -1,9 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import '@/index.less'
 
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-    <div>小李加油</div>
-);
 
+let text = {10:10}
+root.render(
+    <div>
+        {text}
+    </div>
+);
