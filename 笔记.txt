@@ -15,3 +15,24 @@
     + 实现组件的合并、压缩、打包等
     + 代码编译、兼容、校验等
     + ...
+
+=====================
+React的工程化/组件化开发
+    我们可以基于webpack自己去搭建一套工程化打包的架子，但是这样非常麻烦/复杂；React官方为我们提供了一个脚手架：
+    create-react-app
+        + 脚手架：基于它创建项目，默认就把webpack的打包规则处理好了，把一些项目需要的基本文件也都创建好了
+
+1. create-react-app基于应用
+    安装脚手架
+    npm i create-react-app -g
+    检查安装情况
+    create-react-app --version
+
+基于脚手架创建React工程化项目
+    create-react-app 项目名称
+        + 项目名称要遵循npm包命名规范：使用数字、小写字母、_命名
+
+一个React项目中，默认会安装：
+    react：React框架的核心
+    react-dom：React试图渲染的核心「基于React构建WebApp（HTML页面）」
+    react-native：构建和渲染App的
