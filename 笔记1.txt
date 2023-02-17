@@ -125,7 +125,19 @@ JSX构建视图的基础知识
         + 函数对象：不支持在{}渲染，但是可以作为函数组件，用<Component/>方式渲染
         + ...
     @6 给元素设置样式
-        + 行内样式
+        + 行内样式：需要基于对象的格式处理，直接写样式字符串会报错
+            <h2 style={{
+                color:'red',
+                fontSize:12 // 基于驼峰命名法
+            }}>
+            + 项目命名：
+                + 驼峰命名法
+                    小驼峰 camelCase
+                    大驼峰 PascalCase
+                + kebab-case写法：personal-box
+                + 蛇形命名法：ss_ss
+        + 设置样式类名：需要把class替换为className
+        
     
         
 
