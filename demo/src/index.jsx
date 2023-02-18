@@ -1,12 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import Vote from './Views/Vote';
+import Demo from './Views/Demo7';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
 root.render(
     <>
-        <Vote title="React其实还是很好学的！" />
+        <Demo/>
     </>
 )
 
