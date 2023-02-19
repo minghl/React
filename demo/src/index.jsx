@@ -1,6 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import Demo from './Views/Demo7';
+import Demo from './Views/Demo11';
+// import "./index.less"
+import FastClick from 'fastclick';
+
+/* 使用FastClick解决移动端使用click事件的300ms延迟问题 */ 
+FastClick.attach(document.body);
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
