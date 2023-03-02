@@ -1,0 +1,20 @@
+.box{
+    background-color: lightblue;
+}
+
+.box .title{
+    font-size: 20px;
+    color:lightcoral;
+}
+
+.list{
+    font-size: 14px;
+}
+
+.list a {
+    color: #000;
+}
+
+.list a:hover{
+    
+}
