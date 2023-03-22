@@ -162,3 +162,12 @@
                         redux-thunk的第二次派发是手动处理的
                         redux-promise是自动处理的
     + redux-saga
+
+6. Redux改造TASK-OA
+    + redux在真实项目中的运用：
+        1. 实现组件之间的信息共享或者通信
+        2. 对数据进行缓存/存储
+    + 开发流程
+        1. react工程化操作
+        2. 基于react-redux实现需求
+    + 数据缓存，避免重复发请求
