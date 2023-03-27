@@ -17,7 +17,7 @@ const Child2  = React.forwardRef(function Child2(props,ref){
     // -> x => this.child2 = x
     return <div>
         子组件2
-        <button ref={ref}>按钮</button>
+        <button ={ref}>按钮</button>
     </div>
 })
 export default class Demo extends Component {
