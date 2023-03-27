@@ -1,0 +1,166 @@
+1. mobx
+    + 对状态进行检测：
+        observable：把状态变为可监测的，只有这样，以后基于autorun/@observer等监测机制才会生效
+        经过observable处理后的数据，是基于ES6Proxy做过数据劫持的，这样我们后期修改状态值，就可以在SETTER函数中去做一些特殊处理，例如：把监听依赖其值的监听器触发执行...
+
+        observable无法直接装饰原始值，需要使用observable.box处理
+
+    + Proxy： ES6中的内置API
+        对当前某个对象进行数据劫持和代理：这样就可以在操作对象成员的时候，出发get/set等劫持函数，做一些自己要做的特殊处理
+            let proxyObj = new Proxy(obj, {
+                get(target, key) {
+                    console.log('GETTER');
+                    return target[key];
+                },
+                set(target, key, val) {
+                    console.log('SETTER');
+                    target[key] = val;
+                    return key;
+                }
+            });
+            console.log(proxyObj); //返回的代理对象是被劫持的
+            console.log(proxyObj.x); //获取某个成员值的时候，就会触发get函数
+            proxyObj.x = 1000; //设置某个成员值的时候，就会触发set函数 */
+    + Observe
+        创建监听器，对对象进行监听，当对象中的某个成员发生改变，触发回调函数执行「前提是：对象是基于observable修饰的，把其变成了可监听的了」
+            observe(obj, change => {
+            console.log(change); //=>{type:'update',name:'x',oldValue:10,newValue:1000,...}
+        });
+        obj.x = 1000; */
+    
+    + computed 
+        装饰器，创建一个具备计算缓存的计算属性
+            @computed get total() {
+                console.log('total run');
+                return this.count * this.price;
+            }
+
+                store.x = 1000; //total计算属性不会重新执行，用之前缓存的结果
+                store.count = 10; //total计算属性需要重新执行，计算出新的值
+    + reaction
+        和autorun一样，都是监听器，提供更细粒化的状态监测「默认是不会执行的」，reaction需要自己去找状态，并且不会自己执行一次
+        reaction(
+            () => [store.x, store.total],
+            () => {
+                console.log('reaction:', store.x, store.total);
+            }
+        );
+
+    + action 
+        修饰函数的修饰器，它让函数中的状态更改变为“异步批处理”「真实项目中，状态值的更改，我们建议都使用这种方式！」
+        用action的修饰的方法来改状态
+
+        action.bound:
+            保证函数无论如何执行，函数中的this都是Store的实例。
+            store.change(); //this->store
+            ----------
+            let func = store.change;
+            func(); //没有设置bound this->undefined ；设置bound后 this->store
+
+    + configure
+        全局配置
+            强制使用action方法的模式，去修改状态；不允许单独基于实例修改状态了！！
+            configure({
+                enforceActions: 'observed'
+            });
+        runInAction可以实现和@action一模一样的效果
+                runInAction(() => {
+                    store.x = 1000;
+                    store.y = 2000;
+                });
+    
+    + 异步修改状态
+        // 异步函数
+        query()
+
+        class Store {
+            @observable x = 10;
+            @action.bound async change() {
+                let res = 0;
+                try {
+                    res = await query();
+                } catch (_) { }
+                // 需要在异步结束后，基于runInAction去修改状态，防止有时候同步修改不了
+                runInAction(() => {
+                    this.x = res;
+                });
+            }
+        }
+        let store = new Store;
+        autorun(() => {
+            console.log('autorun:', store.x);
+        });
+        store.change(); //返回promise实例，当异步操作结束后，实例会变为成功的{这样我们可以在外部了解到啥时候处理完}
+
+2. mobx修改TaskOA
+    单个Store框架
+        export default class TaskStore {
+            constructor(root) {
+                // root：最外层Store类的实例「包含各个版块Store的实例」
+                // 我们以后可以在TASK版块中，基于this.root获取根Store实例，基于根Store实例，访问其他版块Store的实例
+                this.root = root;
+            }
+            @observable taskList = null;
+
+            // 异步获取全局任务
+            @action.bound async queryAllTaskAction() {
+            }
+            // 同步删除某一任务
+            @action.bound removeTaskAction(id) {
+            }
+            // 同步修改某一任务
+            @action.bound updateTaskAction(id) {
+            }
+        };
+    合并不同Store
+        class Store {
+            constructor() {
+                this.task = new TaskStore(this);
+                this.personal = new PersonalStore(this);
+            }
+        }
+        export default new Store();
+        -----------------
+        store = {
+            task:{
+                taskList:null,
+                __proto__:TaskStore.prototype
+                    queryAllTaskAction
+                    removeTaskAction
+                    updateTaskAction
+            },
+            personal:{
+                info:null,
+                __proto__:PersonalStore.prototype
+                    queryInfo
+            },
+            __proto__: Store.prototype
+        }; 
+    把Store放入上下文中
+        {/* 基于Provider把各个版块Store的实例，都放在上下文中 */}
+        <Provider {...store} /*=> task={store.task} personal={store.personal} */>
+            <Task />
+        </Provider>
+    Task如果是类组件，可以基于装饰器的语法这样处理
+        import { observer, inject } from 'mobx-react';
+        -----
+        // 状态更改，让视图更新的
+        @observer
+        // 把之前基于Provider放在上下文中的，各板块Store的实例，谁想用就拿谁。以属性的方法，传递给组件
+            this.props.task -> TaskStore的实例
+            this.props.personal -> PersonalStore的实例
+        @inject('task','personal')
+    Task如果是函数组件，语法如下，函数组件用不了装饰器：
+        export default inject('task')(observer(Task));
+
+3. mobx6
+    import { makeObservable, makeAutoObservable } from 'mobx';
+    基于makeObservable给状态和方法设置装饰效果！！
+        makeObservable(this, {
+            taskList: observable,
+            queryAllTaskAction: action.bound,
+            removeTaskAction: action.bound,
+            updateTaskAction: action.bound
+        });
+    makeAutoObservable：对makeObservable的加强，可以自己给状态和方法设置装饰，等同于上述操作
+        makeAutoObservable(this);

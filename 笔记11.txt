@@ -1,0 +1,172 @@
+1. SPA(Single Page Application)
+    当代前端开发，大部分都以SPA单页面应用开发为主，而前端路由机制，就是构建SPA单页面应用的利器
+        组成结构：
+            一个主页面 + 许多组件
+        地址模式：
+            hash值不同，渲染不同组件
+            www.xxx.com/#/login
+            www.xxx.com/#/home
+        跳转方式：
+            主页面不刷新，只是组件之间的切换「一个组件渲染/显示，一个组件销毁/隐藏」
+        内容更新：
+            只是相关组件的切换，即局部更新
+        公共资源：
+            公用资源只需要加载一次
+        操作体验：
+            组件切换流畅、操作体验好，容易实现过渡动画
+        数据传递：
+            方式很多「本地存储、全局变量、组件通信等等」
+        开发成本：
+            需要基于特定的框架开发，维护起来非常方便
+        搜索引擎：
+            不利于SEO优化「可基于SSR服务器渲染解决」，页面源文件找不到页面内容，服务器就可以返回内容渲染出来
+        适用场景：
+            目前主流模式，对体验度和流畅度要求比较高的应用，例如：移动端开发、PC端管理系统等
+
+2. 路由设计模式
+    1. Hash路由
+        + 改变也迷啊的呢哈希值（#/xxx），主页面是不会刷新的
+        + 根据不同的哈希值，让容器中渲染不同的内容「组件」
+        + 方法：
+            1. 获取渲染内容的容器
+                const viewBox = document.querySelector('.view-box');
+            2. 构建一个路由表：每当我们重新加载页面、或者路由切换（切换哈希值），都先到这个路由表中进行匹配；根据当前页面的哈希值，匹配出要渲染的内容（组件）
+                const routes = [{
+                    path: '/',
+                    component: '首页内容'
+                }, {
+                    path: '/product',
+                    component: '产品中心内容'
+                }, {
+                    path: '/personal',
+                    component: '个人中心内容'
+                }];
+            3. 页面一加载，我们设置默认的hash值
+                location.hash = '/';
+            4. 路由匹配的方法
+                const routerMatch = function routerMatch(){
+                    let hash = location.hash.substring(1),
+                     text = "";
+                    routes.forEach(item=>{
+                        if(item.path === hash){
+                            text = item.component;
+                        }
+                    });
+                    viewBox.innerHTML = text;
+                }
+            5. 监测hash值的变化，重新进行路由匹配
+                window.onhashchange = routerMatch;
+    2. History路由{浏览器路由}
+        + 利用的H5中的HistoryAPI来实现页面地址的切换「可以不刷新页面」
+        + 根据不同的地址，到路由表中进行匹配，让容器中渲染不同的内容「组件」
+        + 在History对象中，提供了页面地址切换的方法
+        问题：我们切换的地址，在页面不刷新的情况下是没有问题的，但是如果页面刷新，这个地址是不存在的，会报404错误。此时我们需要服务器的配合：在地址不存在的情况下，也可以把主页面内容返回。一般用hash路由。
+        + 方法：
+            1. 获取渲染内容的容器
+            2. 构建一个路由表
+            3. 页面一加载，我们设置默认的url
+                history.pushState({}, "", "/");
+            4. 路由匹配的方法
+                const routerMatch = function routerMatch() {
+                    ***let path = location.pathname,
+                        text = "";
+                    routes.forEach(route => {
+                        if (route.path === path) {
+                            text = route.component;
+                        }
+                    });
+                    viewBox.innerHTML = text;
+                };
+            5. 点击a实现页面地址切换，但是不能刷新页面
+                navBox.onclick = function(ev){
+                    let target = ev.target;
+                    if(target.tagName === 'A') {
+                        ev.preventDefault(); // 阻止a标签页面跳转&刷新的默认行为
+                        history.pushState({},"",target.href); // 实现路由跳转
+                        // 去路由匹配
+                        routerMatch();
+                    }
+                }
+            6. 默认展示首页
+                history.pushState({},"","/");
+                routerMatch();
+            7. 监听popstate地址变化事件；此事件：执行go/forward/back等方法（或者点击前进后退按钮）可以触发，但是执行pushState/replaceState等方法无法触发（因此会有点击后去路由匹配）
+                window.onpopstate = routerMatch;
+            
+3. react-router-dom
+    基于<HashRouter>把所有要渲染的内容包起来，开启HASH路由
+        + 后续用到<Route>、<Link>等，都需要在HashRouter中使用
+        + 开启后，整个页面地址，默认会设置一个 #/ 哈希值
+    
+    Link实现路由切换/跳转的组件
+        + 最后渲染完毕的结果依然是A标签
+        + 它可以根据路由模式，自动设定点击A切换的方式
+
+    Switch确保路由中，只要有一项匹配，则不再继续向下匹配
+
+    exact：设置匹配模式为精准匹配
+
+    当路由地址匹配后，先把render函数执行，返回的返回值就是我们需要渲染的内容
+    在此函数中，可以处理一些事情，例如：登录态检验....
+    --------------
+    import { HashRouter } from 'react-router-dom';
+    --------------
+    <HashRouter>
+        {/* 导航部分 */}
+        <NavBox>
+            <Link to="/">A</Link>
+            <Link to="/b">B</Link>
+            <Link to="/c">C</Link>
+        </NavBox>
+         {/* 路由容器:每一次页面加载或者路由切换完毕，都会根据当前的哈希值，到这里和每一个Route进行匹配，把匹配到的组件，放在容器中渲染！！ */}
+        <div className="content">
+            <Route exact path="/" component={A} />
+            <Route path="/b" component={B} />
+            <Route path="/c" component={C} />
+            {/* 
+                // 放在最后一项，path设置※或者不写，意思是：以上都不匹配，则执行这个规则
+                  <Route path="*" component={404组件} /> 
+                // 当然也可以不设置404组件，而是重定向到默认 / 地址：
+                  <Redirect from="" to="" exact/>
+                    + from:从哪个地址来
+                    + to:重定向的地址
+                    + exact是对from地址的修饰，开启精准匹配
+            */}
+            <Redirect to="/" />
+        </div>
+    </HashRouter>
+    --------------
+    路径地址匹配的规则
+    路由地址:Route中path字段指定的地址
+    页面地址:浏览器URL后面的哈希值
+
+    页面地址   路由地址   非精准匹配   精准匹配
+        /         /         true      true
+        /         /login    false     false
+        /login    /         true      false
+        /a/b      /a        true      false
+        /a/b/     /a/b      true      true
+        /a2/b     /a        false     false
+    ....
+
+    / 和 /xxx 算是地址中的一个整体！！
+    非精准匹配：
+    @1 页面地址和路由地址一样，返回true
+    @2 页面地址中，包含一套完整的路由地址，返回true
+    @3 剩下返回的都是false
+    精准匹配：
+    @1 两个地址只有一模一样才匹配「最后一个/可以忽略」
+
+4. 多级路由
+    / -> 定向到 /A
+    /a -> A.jsx
+        /a -> 定向到 /a/a1
+        /a/a1 -> A1.jsx
+        /a/a2 -> A2.jsx
+        /a/a3 -> A3.jsx
+    /b -> B.jsx
+    /c -> C.jsx
+    以上都不是，则定向到/
+
+    每一次路由跳转，都是从一级路由开始匹配
+        先匹配一级路由，进入匹配的组件，在组件内容，再去匹配二级路由
