@@ -170,3 +170,192 @@
 
     每一次路由跳转，都是从一级路由开始匹配
         先匹配一级路由，进入匹配的组件，在组件内容，再去匹配二级路由
+
+5. 路由统一管理
+    React中的路由，默认是分散到各个组件中配置的
+    配置路由表：数组，数组中每一项就是每一个需要配置的路由规则
+        + redirect:true 此配置是重定向
+        + from:来源的地址
+        + to:重定向的地址
+        + exact:是否精准匹配
+        + path:匹配的路径
+        + component:渲染的组件
+        + name:路由名称(命名路由)
+        + meta:{} 路由元信息「包含当前路由的一些信息，当路由匹配后，我们可以拿这些信息做一些事情...」
+        + children:[] 子路由
+        + ...
+
+    统一基于RENDER函数处理，当某个路由匹配，后期在这里可以做一些其它事情
+
+6. 路由懒加载
+    在真实项目中，如果我们事先把所有组件全部导入进来，再基于Route做路由匹配，这样：最后项目打包的时候，所有组件全部打包到一个js中。
+    这样JS会非常的大：
+        + 第一次加载页面的时候，从服务器获取这个JS文件就会用很久的时间，导致此阶段，页面一直处于白屏的状态，这样很不好。
+        + 虽然说优化方案中，有建议合并为一个JS文件，这样减少HTTP网络请求的次数，但是这个JS文件不宜过大
+        + 我们最好的处理方案是这样的：
+            1. 我们只把最开始要展示的内容/组件打包到“主JS”中「bundle.js」，其余的组件，打包成独立的JS「或者几个组件合并在一起打包」
+            2. 当页面加载的时候，首先只把“主JS”「bundle.js」请求回来渲染，其余的JS先不加载
+                + 因为bundle.js中只有最开始要渲染组件的代码，所以体积小，获取和渲染速度快，可以减少白屏等待的时间
+                + 其余的JS此时并没有加载，也不影响页面第一次渲染
+            3. 当路由切换的时候，和哪个规则匹配，想要渲染哪个组件，再把这个组件所在的JS文件，动态导入进来进行渲染即可
+            -----------------
+            分割打包JS、按需异步加载JS ====> 路由懒加载
+    
+    路由懒加载写法：
+        import { lazy } from 'react';
+        ----------------
+        component: lazy(() => import('../views/B')),
+        借助React.lazy函数和ES6中的import实现还有Suspense：
+            1. 分割打包：每个组件单独打包为一个JS
+            2. 按需导入/加载：最开始渲染页面不会加载这些单独的JS，只有路由规则匹配成功，需要渲染这个组件的时候，再去加载
+    
+    Suspense.fallback：在异步加载的组件没有处理完成之前，先展示的Loading效果
+        return <Route key={index} {...config} render={(props) => {
+                return <Suspense fallback={<>正在处理中...</>}>
+                    <Component {...props} />
+                </Suspense>;
+            }} />;
+    
+    webpackChunkName:基于这个注释，告诉webpack打包后文件的名字相同的组件，会合并打包到一个JS中
+        {
+            path: '/a/a1',
+            name: 'a-a1',
+            component: lazy(() => import(/* webpackChunkName:"AChild" */'../views/a/A1')),
+            meta: {}
+        }, {
+            path: '/a/a2',
+            name: 'a-a2',
+            component: lazy(() => import(/* webpackChunkName:"AChild" */'../views/a/A2')),
+            meta: {}
+        }
+    
+    真实项目中，我们一定要做路由懒加载。但是我们也很少。每个组件就是一个JS，我们会几个组件打包在一起。
+
+7. 获取路由对象信息
+    在react-router-dom v5中，基于Route路由匹配渲染的组件，路由会默认给每个组件传递三个属性：
+    <Route path='/a' component={A}>
+        给A组件传递三个属性：
+            + history
+            + location
+            + match
+            后期我们基于props/this.props获取传递的属性值
+    
+    <Route path='/a' render={(props)=>{
+        // 在render中可以获取传递的属性
+        // 但是组件中没有这些属性，此时我们需要自己传递给组件
+        return <A {...props}/>
+    }}>
+
+    总结：基于<Route>匹配渲染的组件，我们想要获取这三个属性对象
+        @1 基于props属性获取，适用于函数组件和类组件
+        @2 基于Hook函数获取，只适用于函数组件
+    
+    只要在<HashRouter>/<BrowserRouter>中渲染的组件：    
+        我们在组件内部，基于useHistory/useLocation/useRouteMatch这些Hook函数，就可以获取history/location/match这些对象信息
+        即便这个组件并不是基于<Route>匹配渲染的 
+    只有基于<Route>匹配渲染的组件，才可以基于props属性，获取这三个对象信息
+
+    问题：如果当前组件是一个类组件，在<HashRouter>内，但并没有经过<Route>匹配渲染，我们如何获取三个对象信息呢？
+        解决方案：基于函数高阶组件，自己包裹一层进行处理 
+        class HomeHead extends React.Component{
+            render(){
+
+            }
+        }
+        const Handle = function Handle(Component){
+            // Component:真正需要渲染的组件 HomeHead
+            // 返回一个代理/高阶组件「导出去供别的地方调用的就是HOC组件」
+            return function Hoc(props){
+                // props:调用HOC传递的属性，其实这些属性原本是想传递给HomeHead的
+                // HOC是个函数组件，我们可以在这里基于Hook函数获取需要的三个对象信息，然后手动作为属性，传递给HomeHead
+                let history = useHistory()
+                return <Component {...props} history={history}/>
+            }
+        }
+        export default Handle(HomeHead);
+        ------------------
+        在react-router-dom v5版本中，自带了一个高阶组件 withRouter,就是用来解决这个问题的。
+        import { withRouter } from 'react-router-dom';
+        export default withRouter(HomeHead);
+    
+    总结：
+        所有组件最好都包裹在<HashRouter>/<BrowserRouter>中，只有这样的组件，我们才能在每个组件中，获取history/location/match等对象信息
+            1. 函数组件，并且是基于<Route>匹配渲染的
+                + 基于props属性获取「render渲染的，需要自己处理一下」
+                + 基于useHistory, useLocation, useRouteMatch Hook函数获取 
+            2. 函数组件，但是并不是基于<Route>匹配渲染的
+                + 基于Hook函数获取
+                + 基于withRouter代理一下这个组件，这样就可以基于props获取了
+            3. 如果是类组件，Hook函数的方法就被pass了，只能基于props获取；但是如果其没有被<Route>匹配渲染，则需要基于withRouter代理一下这个组件
+
+8. 路由跳转及传参方案
+    路由跳转：
+        方案一：Link跳转
+            可以写成一个对象：这样就不是新增历史信息，而是替换现有记录
+        方案二：编程式导航
+    
+    传参方案：
+        方案一：问号传参
+            + 传递的信息会出现在URL地址上：丑、不安全、长度限制
+            + 信息是显式的，即便在目标路由内刷新，传递的信息也在
+            // history.push('/c?id=100&name=zhufeng');
+            history.push({
+                pathname: '/c',
+                // search存储的就是问号传参信息，要求是urlencoded字符串
+                search: qs.stringify({
+                    id: 100,
+                    name: 'zhufeng'
+                })
+            });
+
+            获取问号传参的值
+            方案一：
+            // console.log(location.search); //"?id=100&name=zhufeng"
+            let { id, name } = qs.parse(location.search.substring(1));
+            方案二：
+            也可以基于URLSearchParams来处理
+            let usp = new URLSearchParams(location.search)
+            console.log(usp.get('id'), usp);
+        
+        方案二：路径传参「把需要传递的值，作为路由路径中的一部分」
+            + 传递的信息也在URL地址中：比问好传参看起来漂亮一些、但是也存在安全和长度的限制
+            + 因为信息都在地址中，即便在目标组件刷新，传递的信息也在
+            每一次路由地址的匹配，都是基于path-to-regexp@^1.7.0处理的
+                ":"设置动态规则
+                path:'/c/:id/:name' 只有/c/100/zhufeng 这样的地址才可以匹配
+                "?"可传递也可以不传递
+                path:'/c/:id?/:name?' 可以匹配的地址有很多
+                    /c
+                    /c/100
+                    /c/100/zhufeng
+            需要自己把传递的信息，拼接到地址中
+
+            获取问号传参的值
+            方案一：
+            // const match = useRouteMatch();
+            // console.log(match.params); //=>{id:100,name:'zhufeng'}
+            方案二：
+            let params = useParams();
+            console.log(params); //=>{id:100,name:'zhufeng'}
+        
+        方案三：隐式传参
+            + 传递的信息不会出现在URL地址中：安全、美观，也没有限制
+            + 在目标组件内刷新，传递的信息就丢失了
+                history.push({
+                    pathname: '/c',
+                    state: {
+                        id: 100,
+                        name: 'zhufeng'
+                    }
+                });
+
+            获取隐式传参的值
+            const location = useLocation();
+            console.log(location.state);
+
+9. NavLink VS Link
+    都是实现路由跳转的，语法几乎一样，区别就是：
+        每一次页面加载或者路由切换完毕，都会拿最新的路由地址，和NavLink中to指定的地址「或者pathname地址」进行匹配
+            + 匹配上的这一样，会默认设置active选中样式类「我们可以基于activeClassName重新设置选中的样式类名」
+            + 我们也可以设置exact精准匹配
+        基于这样的机制，我们就可以给选中的导航设置相关的选中样式

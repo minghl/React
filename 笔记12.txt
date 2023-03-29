@@ -1,0 +1,163 @@
+1. react-router-dom V6
+    移除了
+        + Switch
+        + Redirect -> 代替方案：Navigator
+        + withRouter -> 代替方案：自己写一个withRouter
+    
+    所有的路由匹配规则，放在<Routes>中；
+    每一条规则的匹配，还是基于<Route>；
+        + 路由匹配成功，不再基于component/render控制渲染的组件，而是基于element，语法格式是<Component/>
+        + 不再需要Switch，默认就是一个匹配成功，就不再匹配下面的了
+        + 不再需要exact，默认每一项匹配都是精准匹配
+    原有的<Redirect>操作，被<Navigator to="/" /> 代替
+        + 遇到<Navigator/>组件，路由就会跳转，跳转到to指定的路由地址 
+        + 设置 replace 属性，则不会新增立即记录，而是替换现有记录
+        + <Navigate to={{...}}/> to的值可以是一个对象：pathname需要跳转的地址、search问号传参信息
+    v6版本中，要求所有的路由(二级或者多级路由)，不在分散到各个组件中编写，而是统一都写在一起进行处理
+        <Route path="/a" element={<A />}>
+            <Route path="/a" element={<Navigate to="/a/a1" />} />
+            <Route path="/a/a1" element={<A1 />} />
+        </Route>
+    Outlet：路由容器，用来渲染二级(多级)路由匹配的内容
+        // 加在不同组件里面
+        <Outlet />
+
+2. 路由跳转及传参方案
+    在react-router-dom v6中 ，即便当前组件是基于<Route>匹配渲染的，也不会基于属性，把history/location/match传递给组件。想获取相关的信息，我们只能基于Hook函数处理。
+        + 首先要确保，需要使用Hook的组件，是在Router「HashRouter或BrowserRouter」内部包着的，否则使用这些Hook会报错
+        + 只要在<Router>内部包裹的组件，不论是否基于<Route>匹配渲染的
+            + 默认都不可能再基于props获取相关的对象信息了
+            + 只能基于“路由Hook”去获取
+
+    为了在类组件中也可以获取路由的相关信息：
+    1. 稍后我们构建路由表的时候，我们会想办法继续让基于<Route>匹配渲染的组件，可以基于属性获取需要的信息
+    2. 不是基于<Route>匹配渲染的组件，我们需要自己重写withRouter「v6干掉了这个API」，让其和基于<Route>匹配渲染的组件，具备相同的属性
+
+    在react-router-dom v6中，实现路由跳转的方式：
+        + <Link/NavLink to="/a" > 点击跳转路由
+        + <Navigate to="/a" /> 遇到这个组件就会跳转
+        + 编程式导航：取消了history对象，基于navigate函数实现路由跳转
+            import { useNavigate } from 'react-router-dom';
+            const navigate = useNavigate();
+            navigate('/c');
+            navigate('/c', { replace: true });
+            navigate({
+                pathname: '/c'
+            });
+            navigate({
+                pathname: '/c',
+                search: '?id=100&name=zhufeng'
+            });
+    
+    传参方案：
+        1. 问号传参
+        navigate({
+            pathname: '/c',
+            search: qs.stringify({
+                id: 100,
+                name: 'zhufeng'
+            })
+        }); 
+        拿参：
+        const location = useLocation();
+        // location.search:"?id=100&name=zhufeng"
+        const usp = new URLSearchParams(location.search);
+        console.log(usp.get('id'), usp.get('name')); 
+        ---------------
+        const params = useParams();
+        console.log(params); //=>{id:100,name:'zhufeng'}
+
+        2. 路径传参
+        navigate(`/c/100/zhufeng`);
+        拿参：
+        match获取不到
+        const params = useParams();
+        console.log(params); //=>{id:100,name:'zhufeng'}
+
+        3. 隐式传参
+        navigate('/c', {
+            //历史记录池替换现有地址
+            replace: true,
+            //隐式传参信息
+            state: {
+                id: 100,
+                name: 'zhufeng'
+            }
+        });
+        拿参： 
+        const location = useLocation();
+        console.log(location.state);
+        基于这种方式，在router5中，目标组件只要刷新，传递的信息就消失了；但是在router6中
+
+        在react-router-dom v6中，常用的路由Hook
+        + useNavigate -> 代5中的useHistory：实现编程式导航
+        + useLocation「5中也有」：获取location对象信息pathname/search/state...
+        + useSearchParams「新增的」：获取问号传参信息，取到的结果是一个URLSearchParams对象
+        + useParams「5中也有」：获取路径参数匹配的信息
+        --------------
+        + useMatch(pathname)->代替5中的useRouteMatch「5中的这个Hook有用，可以基于params获取路径参数匹配的信息，但是在6中，这个Hook需要我们自己传递地址，而且params中也没有获取匹配的信息，用的就比较少了」
+
+3. V6路由表及统一管理
+    统一渲染的组件:在这里可以做一些事情「例如：权限/登录态校验，传递路由信息的属性...」
+    每一次路由匹配成功，不直接渲染我们设定的组件，而是渲染Element；在Element做一些特殊处理后，再去渲染我们真实要渲染的组件！！
+    <Route key={index} path={path} element={<Element {...item} />}>
+        {/* 基于递归方式，绑定子集路由 */}
+        {Array.isArray(children) ? createRoute(children) : null}
+    </Route>
+    把路由信息先获取到，最后基于属性传递给组件：只要是基于<Route>匹配渲染的组件，都可以基于属性获取路由信息
+    return <Component navigate={navigate} location={location} params={params} usp={usp} />
+
+    1. 用一渲染组件
+    2. 递归创建Route
+    3. 路由容器
+    4. 创建withRouter(用来解决类，函数组件的，可以基于属性拿路由信息了，本来不用这个函数组件也可以基于Hook函数来拿路由信息)
+
+    函数组件&基于Route匹配渲染的：可以基于props获取路由信息，也可以自己使用Hook函数获取类组件
+    类组件&基于Route匹配的：只能基于属性获取，或者使用withRouter「自己写的」
+    函数组件&不是Route匹配的：可以基于Hook自己处理，也可以使用withRouter
+    类组件&不是Route匹配的：只能使用withRouter
+    ---------
+    都需要放在<HashRouter>内部
+
+4. useReducer
+    useReducer 是对useState的升级处理
+        + 普通需求处理的时候，基本都是useState直接处理，不会使用useReducer
+        + 但是如果一个组件的逻辑很复杂，需要大量的状态，此时使用useReducer管理这些状态会更好一些
+            @1 不需要再基于useState一个个的去创建状态了
+            @2 所有状态修改的逻辑，全部统一化处理了
+
+        语法：
+            const initialState = {
+                num: 0
+            };
+            const reducer = function reducer(state, action) {
+                state = { ...state };
+                switch (action.type) {
+                    case 'plus':
+                        state.num++;
+                        break;
+                    case 'minus':
+                        state.num--;
+                        break;
+                    default:
+                }
+                return state;
+            };
+
+            const A1 = function A1() {
+                let [state, dispatch] = useReducer(reducer, initialState);
+
+                return <div className="box">
+                    <span>{state.num}</span>
+                    <br />
+                    <button onClick={() => {
+                        dispatch({ type: 'plus' });
+                    }}>增加</button>
+                    <button onClick={() => {
+                        dispatch({ type: 'minus' });
+                    }}>减少</button>
+                </div>;
+            };
+            export default A1;
+
+    和redux基础操作，几乎一模一样

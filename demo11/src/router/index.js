@@ -15,6 +15,7 @@ const RouterView = function RouterView(props) {
                 config = { to };
                 if (from) config.from = from;
                 if (exact) config.exact = true;
+                // 循环的元素都要加key
                 return <Redirect key={index} {...config} />;
             }
             // 正常匹配规则
